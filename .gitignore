@@ -1,0 +1,6 @@
+# .gitignore for Metagen-js
+
+## node dir
+
+## .meta files
+*.meta
