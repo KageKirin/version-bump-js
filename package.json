@@ -4,7 +4,8 @@
   "description": "Simple tool to bump package semver versions",
   "main": "version.js",
   "bin": {
-    "version": "version.js"
+    "version": "version.js",
+    "version-csproj": "version-csproj.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
