@@ -1,0 +1,29 @@
+{
+  "name": "version",
+  "version": "0.0.1",
+  "description": "Simple tool to bump package semver versions",
+  "main": "version.js",
+  "bin": {
+    "version": "version.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/KageKirin/version-bump-js.git"
+  },
+  "keywords": [
+    "semver"
+  ],
+  "author": "Chris Helmich",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/KageKirin/version-bump-js/issues"
+  },
+  "homepage": "https://github.com/KageKirin/version-bump-js#readme",
+  "dependencies": {
+    "argparse": "^2.0.1",
+    "glob": "^7.2.0"
+  }
+}
