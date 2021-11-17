@@ -4,7 +4,10 @@
 
 const fs = require('fs');
 const glob = require("glob");
+const xpath = require('xpath')
 const { ArgumentParser } = require('argparse');
+const { DOMParser, XMLSerializer } = require('@xmldom/xmldom')
+
 const { version } = require('./package.json');
 
 const parent_parser = new ArgumentParser({
@@ -21,8 +24,10 @@ const parser = new ArgumentParser({
 let subparsers = parser.add_subparsers({dest: 'action', help: 'action to execute'})
 subparsers.required = true
 
-parent_parser.add_argument('file',   { help: 'file to modify', type: String, default: "package.json"})
+parent_parser.add_argument('file',   { help: 'file to modify', type: String, default: "*.csproj"})
 parent_parser.add_argument('-r', '--regex', { help: 'ECMAScript Regular Expression to parse the version string', type: String, default: "^(?<major>[0-9]+)\.(?<minor>[0-9]+)\.(?<patch>[0-9]+)$" })
+parent_parser.add_argument('-x', '--xpath', { help: 'XPath to locate version element', type: String, default: "//PropertyGroup/Version" })
+
 
 const get_parser = subparsers.add_parser('get', { parents: [parent_parser], help: 'get version number'});
 const set_parser = subparsers.add_parser('set', { parents: [parent_parser], help: 'set version number'});
@@ -54,11 +59,14 @@ function main()
 
 function get_version()
 {
-  let pkg = read_package_json(args.file);
-  let ver = pkg.version
-  let [major, minor, patch] = parse_version(ver);
-  console.log(`${major}.${minor}.${patch}`);
-  //console.dir({'major': major, 'minor': minor, 'patch': patch});
+  const doc = read_csproj(args.file);
+  const verElement = get_csproj_version(doc);
+  if (verElement)
+  {
+    let ver = verElement.data
+    let [major, minor, patch] = parse_version(ver);
+    console.log(`${major}.${minor}.${patch}`);
+  }
 }
 
 function set_version()
@@ -67,9 +75,14 @@ function set_version()
   if (verTpl)
   {
     let [major, minor, patch] = verTpl;
-    let pkg = read_package_json(args.file);
-    pkg.version = args.version;
-    write_package_json(args.file, pkg);
+    let doc = read_csproj(args.file);
+    const verElement = get_csproj_version(doc);
+
+    if (verElement)
+    {
+      verElement.data = args.version;
+    }
+    write_csproj(args.file, doc);
   }
 
   return get_version();
@@ -77,42 +90,76 @@ function set_version()
 
 function bump_version()
 {
-  let pkg = read_package_json(args.file);
-  let verTpl = parse_version(pkg.version);
-  if (verTpl)
+  let doc = read_csproj(args.file);
+  const verElement = get_csproj_version(doc);
+
+  if (verElement)
   {
-    let [major, minor, patch] = verTpl;
-
-    if (args.major)
+    let verTpl = parse_version(verElement.data);
+    if (verTpl)
     {
-      major++;
-    }
+      let [major, minor, patch] = verTpl;
 
-    if (args.minor)
-    {
-      minor++;
-    }
+      if (args.major)
+      {
+        major++;
+      }
 
-    if (args.patch)
-    {
-      patch++;
-    }
+      if (args.minor)
+      {
+        minor++;
+      }
 
-    pkg.version = `${major}.${minor}.${patch}`;
-    write_package_json(args.file, pkg);
+      if (args.patch)
+      {
+        patch++;
+      }
+
+      verElement.data = `${major}.${minor}.${patch}`;
+      write_csproj(args.file, doc);
+    }
   }
 
   return get_version();
 }
 
-function read_package_json(file)
+function read_csproj(file)
 {
-  return JSON.parse(fs.readFileSync(file));
+  const files = glob.sync(file);
+  if (files.length)
+  {
+    let xml = fs.readFileSync(files[0], 'utf8');
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xml, "application/xml");
+
+    if (doc == null)
+    {
+      throw Error("error while parsing");
+    }
+
+    return doc;
+  }
+
+  return null;
 }
 
-function write_package_json(file, data)
+
+function write_csproj(file, doc)
 {
-  fs.writeFileSync(file, JSON.stringify(data, null, '  ') + '\n');
+  const serializer = new XMLSerializer();
+  const xml = serializer.serializeToString(doc);
+  fs.writeFileSync(file, xml + '\n');
+}
+
+function get_csproj_version(doc)
+{
+  const verElement = xpath.select(args.xpath, doc);
+  if (verElement)
+  {
+    return verElement[0].firstChild;
+  }
+  return null;
 }
 
 function parse_version(version)
@@ -122,5 +169,5 @@ function parse_version(version)
   {
     return [match.groups.major, match.groups.minor, match.groups.patch];
   }
-  return null
+  return null;
 }
