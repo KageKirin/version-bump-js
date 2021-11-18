@@ -24,9 +24,10 @@ const parser = new ArgumentParser({
 let subparsers = parser.add_subparsers({dest: 'action', help: 'action to execute'});
 subparsers.required = true;
 
-parent_parser.add_argument('file',   { help: 'file to modify', type: String, default: "*.csproj"})
-parent_parser.add_argument('-r', '--regex', { help: 'ECMAScript Regular Expression to parse the version string', type: String, default: "^(?<major>[0-9]+)\.(?<minor>[0-9]+)\.(?<patch>[0-9]+)$" })
-parent_parser.add_argument('-x', '--xpath', { help: 'XPath to locate version element', type: String, default: "//PropertyGroup/Version" })
+parent_parser.add_argument('file',   { help: 'file to modify', type: String, default: "*.csproj"});
+parent_parser.add_argument('-r', '--regex', { help: 'ECMAScript Regular Expression to parse the version string', type: String,
+  default: raw`^(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)(?:-(?<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$` });
+parent_parser.add_argument('-x', '--xpath', { help: 'XPath to locate version element', type: String, default: "//PropertyGroup/Version" });
 
 
 const get_parser = subparsers.add_parser('get', { parents: [parent_parser], help: 'get version number'});
@@ -98,7 +99,7 @@ function bump_version()
     let verTpl = parse_version(verElement.data);
     if (verTpl)
     {
-      let [major, minor, patch] = verTpl;
+      let [major, minor, patch, prerelease, buildmetadata] = verTpl;
 
       if (args.major)
       {
@@ -116,6 +117,16 @@ function bump_version()
       }
 
       verElement.data = `${major}.${minor}.${patch}`;
+
+      if (prerelease)
+      {
+          verElement.data += "-" + prerelease;
+      }
+      if (buildmetadata)
+      {
+          verElement.data += "+" + buildmetadata;
+      }
+
       write_csproj(args.file, doc);
     }
   }
@@ -167,7 +178,12 @@ function parse_version(version)
   let match = version.match(args.regex);
   if (match)
   {
-    return [match.groups.major, match.groups.minor, match.groups.patch];
+    return [match.groups.major, match.groups.minor, match.groups.patch, match.groups.prerelease, match.groups.buildmetadata];
   }
   return null;
+}
+
+function raw(str)
+{
+  return str.raw[0];
 }

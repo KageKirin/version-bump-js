@@ -21,8 +21,9 @@ const parser = new ArgumentParser({
 let subparsers = parser.add_subparsers({dest: 'action', help: 'action to execute'});
 subparsers.required = true
 
-parent_parser.add_argument('file',   { help: 'file to modify', type: String, default: "package.json"})
-parent_parser.add_argument('-r', '--regex', { help: 'ECMAScript Regular Expression to parse the version string', type: String, default: "^(?<major>[0-9]+)\.(?<minor>[0-9]+)\.(?<patch>[0-9]+)$" })
+parent_parser.add_argument('file',   { help: 'file to modify', type: String, default: "package.json"});
+parent_parser.add_argument('-r', '--regex', { help: 'ECMAScript Regular Expression to parse the version string', type: String,
+  default: raw`^(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)(?:-(?<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$` });
 
 const get_parser = subparsers.add_parser('get', { parents: [parent_parser], help: 'get version number'});
 const set_parser = subparsers.add_parser('set', { parents: [parent_parser], help: 'set version number'});
@@ -56,8 +57,9 @@ function get_version()
 {
   let pkg = read_package_json(args.file);
   let ver = pkg.version
-  let [major, minor, patch] = parse_version(ver);
+  let [major, minor, patch, prerelease, buildmetadata] = parse_version(ver);
   console.log(`${major}.${minor}.${patch}`);
+  console.log("%s", ver);
   //console.dir({'major': major, 'minor': minor, 'patch': patch});
 }
 
@@ -66,7 +68,7 @@ function set_version()
   let verTpl = parse_version(args.version);
   if (verTpl)
   {
-    let [major, minor, patch] = verTpl;
+    let [major, minor, patch, prerelease, buildmetadata] = verTpl;
     let pkg = read_package_json(args.file);
     pkg.version = args.version;
     write_package_json(args.file, pkg);
@@ -81,7 +83,7 @@ function bump_version()
   let verTpl = parse_version(pkg.version);
   if (verTpl)
   {
-    let [major, minor, patch] = verTpl;
+    let [major, minor, patch, prerelease, buildmetadata] = verTpl;
 
     if (args.major)
     {
@@ -99,6 +101,16 @@ function bump_version()
     }
 
     pkg.version = `${major}.${minor}.${patch}`;
+
+    if (prerelease)
+    {
+        pkg.version += "-" + prerelease;
+    }
+    if (buildmetadata)
+    {
+        pkg.version += "+" + buildmetadata;
+    }
+
     write_package_json(args.file, pkg);
   }
 
@@ -120,7 +132,12 @@ function parse_version(version)
   let match = version.match(args.regex);
   if (match)
   {
-    return [match.groups.major, match.groups.minor, match.groups.patch];
+    return [match.groups.major, match.groups.minor, match.groups.patch, match.groups.prerelease, match.groups.buildmetadata];
   }
   return null
+}
+
+function raw(str)
+{
+  return str.raw[0];
 }
